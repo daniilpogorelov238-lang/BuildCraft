@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuildCraft Pro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --bg: #0a0a0f; --surface: #16161e; --primary: #a855f7;
+            --text: #e2e8f0; --dim: #94a3b8; --border: #2d2d3f;
+            --radius: 12px; --gold: #f59e0b; --success: #10b981;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, sans-serif; background: var(--bg); color: var(--text);
+            min-height: 100vh; padding: 20px;
+            background-image: radial-gradient(ellipse at 20% 50%, rgba(168,85,247,.08) 0%, transparent 50%);
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        header {
+            text-align: center; padding: 30px 0;
+            h1 { font-size: 2.5rem; background: linear-gradient(135deg, #c084fc, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        }
+        .panel {
+            background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 20px; margin: 15px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+        }
+        input, select, textarea {
+            padding: 10px 15px; border-radius: 20px; border: 1px solid var(--border);
+            background: #1e1e2a; color: var(--text); font-size: .9rem; outline: none; flex: 1; min-width: 150px;
+        }
+        input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 15px rgba(168,85,247,.3); }
+        button {
+            padding: 10px 20px; border: none; border-radius: 20px; cursor: pointer;
+            font-weight: 700; transition: .3s; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-primary { background: linear-gradient(135deg, #a855f7, #7c3aed); color: #fff; }
+        .btn-primary:hover { box-shadow: 0 0 20px rgba(168,85,247,.5); }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--dim); }
+        .btn-outline:hover { border-color: var(--primary); color: #fff; }
+        .btn-sm { padding: 6px 12px; font-size: .8rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+        .card {
+            background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 15px; transition: .3s; display: flex; flex-direction: column; gap: 8px;
+        }
+        .card:hover { border-color: var(--primary); transform: translateY(-3px); box-shadow: 0 10px 25px rgba(168,85,247,.2); }
+        .badge {
+            display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
+            border-radius: 20px; font-size: .75rem; font-weight: 700; background: rgba(168,85,247,.15); color: #c084fc;
+        }
+        .card h3 { font-size: 1.1rem; }
+        .card p { color: var(--dim); font-size: .85rem; flex: 1; }
+        .meta { display: flex; gap: 10px; font-size: .75rem; color: var(--dim); flex-wrap: wrap; }
+        .vote-row { display: flex; align-items: center; gap: 8px; }
+        .vote-btn { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 1rem; padding: 4px; }
+        .vote-btn:hover, .vote-btn.voted { color: var(--primary); }
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,.8); z-index: 100;
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal {
+            background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 25px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto;
+        }
+        .modal h2 { margin-bottom: 15px; }
+        .modal label { display: block; margin: 10px 0 4px; color: var(--dim); font-size: .85rem; }
+        .modal input, .modal select, .modal textarea { width: 100%; margin-bottom: 5px; }
+        .modal textarea { min-height: 80px; resize: vertical; }
+        .flex { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .tag {
+            padding: 6px 14px; border-radius: 20px; font-size: .8rem; cursor: pointer;
+            border: 1px solid var(--border); background: #1e1e2a; color: var(--dim); white-space: nowrap;
+        }
+        .tag.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+        #count { color: var(--primary); font-weight: 700; }
+        @media (max-width: 600px) { .panel { flex-direction: column; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header><h1>⚡ BuildCraft Pro</h1></header>
+
+    <!-- Поиск и фильтры -->
+    <div class="panel">
+        <input type="text" id="search" placeholder="🔍 Поиск билдов..." oninput="debounceSearch()">
+        <button class="btn-primary" onclick="applyFilters()"><i class="fas fa-search"></i></button>
+        <select id="filterGame" onchange="applyFilters()"><option value="all">🎮 Все игры</option></select>
+        <select id="filterClass" onchange="applyFilters()"><option value="all">👤 Все классы</option></select>
+        <button class="btn-outline" onclick="openModal('addModal')"><i class="fas fa-plus"></i> Добавить</button>
+    </div>
+
+    <!-- Вкладки и сортировка -->
+    <div class="flex" style="margin-bottom:10px;">
+        <span class="tag active" onclick="switchTab('all',this)">Все</span>
+        <span class="tag" onclick="switchTab('my',this)">Мои</span>
+        <span class="tag" onclick="switchTab('popular',this)">🔥 Популярные</span>
+        <span style="margin-left:auto;color:var(--dim);font-size:.85rem;">Найдено: <span id="count">0</span></span>
+    </div>
+
+    <!-- Результаты -->
+    <div class="grid" id="results"></div>
+</div>
+
+<!-- Модалка добавления -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <h2>➕ Новый билд</h2>
+        <form id="addForm">
+            <label>Игра *</label><select id="bGame" required></select>
+            <label>Класс</label><input id="bClass" placeholder="Например: Самурай">
+            <label>Название *</label><input id="bName" required placeholder="Кровавый самурай">
+            <label>Описание *</label><textarea id="bDesc" required></textarea>
+            <label>Сложность</label>
+            <select id="bDiff"><option>Легкая</option><option selected>Средняя</option><option>Высокая</option></select>
+            <label>Тип</label>
+            <select id="bType"><option>Универсальный</option><option>PvE</option><option>PvP</option><option>Босс-киллер</option></select>
+            <div class="flex" style="justify-content:flex-end;margin-top:15px;">
+                <button type="button" class="btn-outline" onclick="closeModal('addModal')">Отмена</button>
+                <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Опубликовать</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Модалка деталей -->
+<div class="modal-overlay" id="detailModal">
+    <div class="modal" id="detailContent"></div>
+</div>
+
+<script>
+// ====== ДАННЫЕ ======
+const gamesList = ["Elden Ring","Path of Exile","Diablo IV","Baldur's Gate 3","Dark Souls 3","Cyberpunk 2077","Skyrim","Genshin Impact","The Witcher 3","World of Warcraft"];
+const classesDB = {
+    "Elden Ring":["Самурай","Астролог","Воин","Разбойник","Пророк"],
+    "Path of Exile":["Ведьма","Охотница","Жрец","Дикарь","Ассасин"],
+    "Diablo IV":["Варвар","Волшебник","Друид","Некромант","Разбойник"],
+    "Baldur's Gate 3":["Воин","Паладин","Волшебник","Монах","Бард"],
+    "Cyberpunk 2077":["Соло","Нетраннер","Технарь"],
+    "Genshin Impact":["Ху Тао","Райдэн","Дилюк","Гань Юй","Чжун Ли"]
+};
+
+let builds = [
+    {id:1,game:"Elden Ring",name:"Кровавый самурай",class:"Самурай",desc:"Реки крови + Утигатана. Кровотечение и ловкость.",diff:"Средняя",type:"Босс-киллер",author:"System",rating:4.9,votes:{up:245,down:12},date:"2024-01-15"},
+    {id:2,game:"Elden Ring",name:"Маг Луны",class:"Астролог",desc:"Посох Карианского скипетра. Кометы и звездные дожди.",diff:"Легкая",type:"PvE",author:"System",rating:4.7,votes:{up:189,down:15},date:"2024-01-20"},
+    {id:3,game:"Path of Exile",name:"Токсичный дождь",class:"Охотница",desc:"Стрелы хаоса + споры. Фарм и боссы.",diff:"Средняя",type:"Универсальный",author:"System",rating:4.8,votes:{up:312,down:18},date:"2024-02-01"},
+    {id:4,game:"Diablo IV",name:"Костяное копье",class:"Некромант",desc:"Криты 10M+. Убер Лилит.",diff:"Средняя",type:"Босс-киллер",author:"System",rating:4.9,votes:{up:278,down:9},date:"2024-02-10"},
+    {id:5,game:"Baldur's Gate 3",name:"Паладин/Чародей",class:"Паладин",desc:"4 атаки за ход. Божественные удары.",diff:"Средняя",type:"Соло",author:"System",rating:5.0,votes:{up:421,down:5},date:"2024-03-01"},
+    {id:6,game:"Cyberpunk 2077",name:"Нетраннер",class:"Нетраннер",desc:"Взлом через камеры. Контроль толпы.",diff:"Легкая",type:"PvE",author:"System",rating:4.6,votes:{up:156,down:22},date:"2024-03-10"},
+    {id:7,game:"Genshin Impact",name:"Ху Тао Пар",class:"Ху Тао",desc:"Реакция Пар с Син Цю. Огромный урон под низким HP.",diff:"Высокая",type:"Босс-киллер",author:"System",rating:4.8,votes:{up:198,down:14},date:"2024-04-01"},
+    {id:8,game:"Dark Souls 3",name:"Пиромант Хаоса",class:"Пиромант",desc:"Огненный шар Хаоса. Универсальный билд.",diff:"Средняя",type:"Универсальный",author:"System",rating:4.5,votes:{up:134,down:20},date:"2024-04-15"}
+];
+
+let nextId = 9, currentTab = 'all';
+let userVotes = JSON.parse(localStorage.userVotes||'{}');
+let myBuilds = JSON.parse(localStorage.myBuilds||'[]');
+
+const allBuilds = () => [...builds, ...myBuilds];
+
+// ====== ИНИЦИАЛИЗАЦИЯ ======
+function init() {
+    const gs = document.getElementById('filterGame');
+    const bg = document.getElementById('bGame');
+    gamesList.forEach(g => { gs.add(new Option(g,g)); bg.add(new Option(g,g)); });
+    applyFilters();
+}
+document.addEventListener('DOMContentLoaded', init);
+
+// ====== ФИЛЬТРЫ ======
+function applyFilters() {
+    const q = document.getElementById('search').value.toLowerCase().trim();
+    const game = document.getElementById('filterGame').value;
+    const cls = document.getElementById('filterClass').value;
+    
+    let arr = currentTab==='my' ? myBuilds : currentTab==='popular' ? allBuilds().filter(b=>(b.votes.up||0)>=50) : allBuilds();
+    if (game!=='all') arr = arr.filter(b=>b.game===game);
+    if (cls!=='all') arr = arr.filter(b=>b.class===cls);
+    if (q) arr = arr.filter(b=>b.name.toLowerCase().includes(q)||b.desc.toLowerCase().includes(q)||b.game.toLowerCase().includes(q));
+    arr.sort((a,b)=>b.rating-a.rating);
+    
+    render(arr);
+    updateClassFilter(game);
+}
+
+function updateClassFilter(game) {
+    const sel = document.getElementById('filterClass');
+    sel.innerHTML = '<option value="all">👤 Все классы</option>';
+    const classes = game!=='all'&&classesDB[game] ? classesDB[game] : [...new Set(Object.values(classesDB).flat())].sort();
+    classes.forEach(c=>sel.add(new Option(c,c)));
+}
+
+function switchTab(tab, el) {
+    currentTab = tab;
+    document.querySelectorAll('.tag').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    applyFilters();
+}
+
+let searchTimer;
+function debounceSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(applyFilters, 300); }
+
+// ====== РЕНДЕР ======
+function render(arr) {
+    document.getElementById('count').textContent = arr.length;
+    const res = document.getElementById('results');
+    if (!arr.length) { res.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--dim);"><i class="fas fa-ghost" style="font-size:3rem;"></i><p>Ничего не найдено</p></div>'; return; }
+    
+    res.innerHTML = arr.map(b=>{
+        const vd = (b.votes.up||0)-(b.votes.down||0);
+        const uv = userVotes[b.id];
+        return `<div class="card">
+            <div style="display:flex;justify-content:space-between;"><span class="badge"><i class="fas fa-gamepad"></i>${b.game}</span><span style="color:var(--dim);font-size:.75rem;">👤${b.author||'Аноним'}</span></div>
+            <h3>${b.name}</h3>
+            <div class="meta"><span>👤${b.class||'—'}</span><span>📊${b.diff}</span><span>🏷️${b.type||'—'}</span><span>⭐${b.rating}</span></div>
+            <p>${b.desc}</p>
+            <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:10px;">
+                <div class="vote-row">
+                    <button class="vote-btn ${uv==='up'?'voted':''}" onclick="vote(${b.id},'up')">👍</button>
+                    <span style="color:${vd>=0?'var(--success)':'#ef4444'}">${vd}</span>
+                    <button class="vote-btn ${uv==='down'?'voted':''}" onclick="vote(${b.id},'down')">👎</button>
+                </div>
+                <button class="btn-outline btn-sm" onclick="showDetail(${b.id})">👁️</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ====== ГОЛОСОВАНИЕ ======
+function vote(id, type) {
+    const b = allBuilds().find(x=>x.id===id); if (!b||!b.votes) return;
+    const prev = userVotes[id];
+    if (prev===type) { type==='up'?b.votes.up--:b.votes.down--; delete userVotes[id]; }
+    else {
+        if (prev==='up') b.votes.up--; else if (prev==='down') b.votes.down--;
+        type==='up'?b.votes.up++:b.votes.down++;
+        userVotes[id]=type;
+    }
+    const t = b.votes.up+b.votes.down;
+    b.rating = t>0 ? Math.round((b.votes.up/t*5)*10)/10 : 0;
+    localStorage.userVotes = JSON.stringify(userVotes);
+    localStorage.myBuilds = JSON.stringify(myBuilds);
+    applyFilters();
+}
+
+// ====== ДЕТАЛИ ======
+function showDetail(id) {
+    const b = allBuilds().find(x=>x.id===id); if (!b) return;
+    document.getElementById('detailContent').innerHTML = `
+        <h2>${b.name}</h2>
+        <p><strong>Игра:</strong> ${b.game} | <strong>Класс:</strong> ${b.class||'—'}</p>
+        <p><strong>Сложность:</strong> ${b.diff} | <strong>Тип:</strong> ${b.type||'—'} | ⭐${b.rating}</p>
+        <p><strong>Автор:</strong> ${b.author||'Аноним'}</p>
+        <hr style="border-color:var(--border);margin:10px 0;"><p>${b.desc}</p>
+        <div style="text-align:right;margin-top:15px;"><button class="btn-outline" onclick="closeModal('detailModal')">Закрыть</button></div>`;
+    openModal('detailModal');
+}
+
+// ====== ДОБАВЛЕНИЕ ======
+document.getElementById('addForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    myBuilds.push({
+        id: nextId++, game: document.getElementById('bGame').value,
+        name: document.getElementById('bName').value,
+        class: document.getElementById('bClass').value||'Универсальный',
+        desc: document.getElementById('bDesc').value,
+        diff: document.getElementById('bDiff').value,
+        type: document.getElementById('bType').value,
+        author: 'Я', rating: 0, votes: {up:0,down:0}, date: new Date().toISOString().split('T')[0]
+    });
+    localStorage.myBuilds = JSON.stringify(myBuilds);
+    closeModal('addModal'); this.reset(); applyFilters();
+});
+
+// ====== МОДАЛКИ ======
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+window.addEventListener('click', e => { if (e.target.classList.contains('modal-overlay')) e.target.style.display = 'none'; });
+</script>
+</body>
+</html>
